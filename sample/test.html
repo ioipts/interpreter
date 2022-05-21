@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta content="text/html; charset=utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Python Interpreter</title>	
+<script>
+
+/********* STATEMENT TYPE *************/
+const ASSIGNSTATEMENT=1;
+const IFSTATEMENT=2;
+const CONSTANTSTATEMENT=3;
+const LOGICSTATEMENT=4;
+const COMPARESTATEMENT=5;
+const EXPRESSIONSTATEMENT=6;
+const BINDINGSTATEMENT=7;
+const VARIABLESTATEMENT=8;
+const WHILESTATEMENT=9;
+const FORSTATEMENT=10;
+const CALLSTATEMENT=11;
+const RETURNSTATEMENT=12;
+
+/********* VARIABLE TYPE *************/
+const GLOBALVAR=1;
+const LOCALVAR=2;
+const STATICVARPROPERTY=1;
+const DYNAMICVARPROPERTY=2;
+
+const DEBUG=1;	//0
+
+/********* code block *****************/
+var c;
+
+function initValue(value)
+{
+	var p={name:"",value:value};
+	var v={numproperties:1,properties:[]};
+	v.properties[0]=p;
+	v.properties[0].value=value;
+	return v;
+}
+
+function initVariable()
+{
+	var p={name:"",value:""};
+	var v={numproperties:1,properties:[]};
+	v.properties[0]=p;
+	v.properties[0].value="";
+	return v;
+}
+
+function setVariable(v,propertie,value)
+{	//clear first 
+	var i = 0;
+	var len = propertie.length;
+	while (i < v.numproperties) {
+		var s = v.properties[i];
+		if ((len == 0) || ((s.name===propertie) || (s.name.substring(0,len+1)==propertie+'.'))) {
+			if (v.numproperties > 1) {
+				v.numproperties--;
+				v.properties[i] = v.properties[v.numproperties];
+			}
+			else { //left only one 
+				v.properties[0].name="";
+				v.properties[0].value="";
+				i = v.numproperties;
+			}
+		}
+		else i++;
+	}
+	//then merge or replace
+	for (var i = 0; i < value.numproperties; i++)
+	{
+		var s = value.properties[i];
+		p= propertie+(((propertie.length > 0) && (s.name.length > 0)) ? "." : "")+ s.name;
+		var found = -1;
+		for (var j = 0; j < v.numproperties; j++)
+		{
+			if (v.properties[j].name==p) { found = j; }
+		}
+		if (found == -1) {
+			v.properties[v.numproperties].name=p;
+			v.properties[v.numproperties].value=s.value;
+			v.numproperties++;
+		}
+		else {
+			v.properties[found].value=s.value;
+		}
+	}
+	return v;
+}
+
+function getVariable(v, property)
+{
+	var res={numproperties:0,properties:[]};
+	for (var i = 0; i < v.numproperties; i++)
+	{
+		var s=v.properties[i];
+		if (s.name==property) {
+			res.properties[res.numproperties]={name:property,value:s.value};
+			res.numproperties++;
+		}
+	}
+	return res;
+}
+
+function variableArray(vid)
+{	//expand the array
+	if (c.var[vid]==null) {
+		c.var[vid] = initVariable();
+	}
+}
+
+function getVariableProperty(vs)
+{
+	var result = "";
+	for (var i = 0; i < vs.properties.length; i++)
+	{
+		if (i != 0) result=result+".";
+		if (vs.properties[i].type === STATICVARPROPERTY) {
+			result=result+vs.properties[i].static;
+		}
+		else {
+			var v=runstep(vs.properties[i].dynamic);
+			if (v.numproperties == 1) {
+				result=result+v.properties[0].value;
+			}
+		}
+	}
+	return result;
+}
+
+/**
+* main to run each step
+* @return result
+*/
+function runstep(index)
+{
+ while ((index != 0) && (index!= undefined)) {
+  var s=c.statement[index];
+  //console.log("index "+index);
+  var type = s.type;
+  //console.log("type "+type);
+  switch (type)
+  {
+	 case CONSTANTSTATEMENT:
+	 {
+		 return s.value;	
+	 } break;
+	 case VARIABLESTATEMENT:
+	 {
+		  var vartype=s.vartype;
+		  var vid = (vartype == GLOBALVAR) ? s.vid : s.vid + c.currentvarstack;
+		  var property = getVariableProperty(s);
+		  variableArray(vid);
+		  var res=getVariable(c.var[vid],property);
+		  var result=(res == null)?initValue(""):res;
+		  return result;
+
+	 } break;
+	 case LOGICSTATEMENT:
+	 {
+		 var result="";
+		 var left=runstep(s.left);
+		 var right=(s.logic != '!')? runstep(s.right):initValue("");
+		 if (s.logic == '&') 
+		 {
+			 result=((left.properties[0].value=="1") && (right.properties[0].value=="1"))?"1":"0";
+		 }
+		 else if (s.logic=='|')
+		 {
+			 result=((left.properties[0].value=="1") || (right.properties[0].value=="1"))?"1":"0";
+		 }
+		 else if (s.logic=='!')
+		 {
+			 if (left.properties[0].value=="0") result="1";
+			 else if (left.properties[0].value=="1") result="0";
+		 }
+		 return initValue(result);
+	 } break;
+	 case COMPARESTATEMENT:
+	 {
+		 var result="";
+		 var left=runstep(s.left);
+		 var right=runstep(s.right);
+		 var leftnum = parseFloat(left.properties[0].value); 
+		 var rightnum = parseFloat(right.properties[0].value);
+		 if ((leftnum!=NaN) && (rightnum!=NaN))
+		 {	 //compare number
+			 if (s.compare=='=') { result=(Math.abs(leftnum - rightnum) < 0.0001) ? "1" : "0"; }
+			 else if (s.compare=='!') { result=(Math.abs(leftnum - rightnum) > 0.0001) ? "1" : "0"; } 
+			 else if (s.compare=='>') { result=(leftnum > rightnum) ? "1" : "0"; }
+			 else if (s.compare=='>=') { result=(leftnum >= rightnum) ? "1" : "0"; } 
+			 else if (s.compare=='<') { result=(leftnum < rightnum) ? "1" : "0"; } 
+			 else if (s.compare=='<=') { result=(leftnum <= rightnum) ? "1" : "0"; } 
+		 }
+		 else
+		 {
+			 if (s.compare=='=') { result=(left==right)? "1" : "0"; } 
+			 else if (s.compare=='!') { result=(left!=right)? "1" : "0"; } 
+			 else if (s.compare=='>') { result=(left>right)? "1" : "0"; }
+			 else if (s.compare=='>=') { result=(left>=right)? "1" : "0"; } 
+			 else if (s.compare=='<') { result=(left<right) ? "1" : "0"; }
+			 else if (s.compare=='<=') { result=(left<=right)? "1" : "0"; }
+		 }
+		 return initValue(result);
+	 } break;
+	 case EXPRESSIONSTATEMENT:
+	 {
+		 var result="";
+		 var left=runstep(s.left);
+		 var right=runstep(s.right);
+		 var leftnum = parseFloat(left.properties[0].value);
+		 var rightnum = parseFloat(right.properties[0].value);
+		 if ((leftnum!=NaN) && (rightnum!=NaN))
+		 {
+			 switch (s.op)
+			 {
+			 case '+': { result=leftnum +rightnum; } break;
+			 case '-': { result=leftnum - rightnum; } break;
+			 case '*': { result=leftnum * rightnum; } break;
+			 case '/': { result=leftnum / rightnum; } break;
+			 case '%': { result=(Math.round(leftnum) % Math.round(rightnum)); } break;
+			 case '&': { result=(Math.round(leftnum) & Math.round(rightnum)); } break;
+			 case '|': { result=(Math.round(leftnum) | Math.round(rightnum)); } break;
+			 case '^': { result=(leftnum ^ rightnum); } break;
+			 }
+		 }
+		 else {
+			 result=(s.op == '+')?left+right:left;
+		 }
+		 return initValue(result);
+	 } break;
+	 case BINDINGSTATEMENT:
+	 {
+		 var param=new Array(s.param.length);
+		 for (i = 0; i < s.param.length; i++)
+		 {
+			 param[i]=runstep(s.param[i]);
+		 }
+		 result = initValue("");
+		 var prop = "";
+		 var vs = null;
+		 if (s.left > 0) {	//binding with variable statement
+			 vs = c.statement[s.left];
+			 var vid = (vs.vartype == GLOBALVAR) ? vs.vid : vs.vid + c.currentvarstack;
+			 variableArray(vid);
+			 prop = getVariableProperty(vs);
+		 }
+		 //for testing
+		 result=c.callback((vs==null)?null:((vs.vartype == GLOBALVAR)?c.var[vs.vid]:c.var[vs.vid+c.currentvarstack]), s.varname, prop, s.funcname, param, s.param.length, c.id, result);
+		 if (s.next == 0) {
+			 c.currentstack--;
+			 return result;
+		 }
+		 index = s.next;		 
+	 } break;
+	 case ASSIGNSTATEMENT:
+	 {  
+		 var right = runstep(s.right);
+		 var left = c.statement[s.left];
+		 if (left.type==VARIABLESTATEMENT)
+		 {
+			var property = getVariableProperty(left);
+			var vid = (left.vartype == GLOBALVAR) ? left.vid : left.vid + c.currentvarstack;
+			variableArray(vid);
+			setVariable(c.var[vid], property, right);
+		 }
+		 index = s.next;	
+	 } break;
+	 case IFSTATEMENT: 
+	 {	 
+		 if (s.logic == 0) {		//else
+			 index = s.ifthen;
+		 }
+		 else {
+			 var left = runstep(s.logic);
+			 if (left.properties[0].value=="1")
+			 {
+				 index=s.ifthen;
+			 }
+			 else {
+				 index=s.next;
+			 }
+		 }
+	 } break;
+	 case WHILESTATEMENT:
+	 {
+		 var left = runstep(s.logic);
+		 while (left.properties[0].value=="1") 
+		 {
+			 runstep(s.dowhile);
+			 left=runstep(s.logic);
+		 }
+		 index=s.next;
+	 } break;
+	 case FORSTATEMENT: 
+	 {
+		 index=0;
+	 } break;
+	 case CALLSTATEMENT:
+	 {
+        //save state
+        c.stack[c.currentstack] = s.next;
+        c.varstack[c.currentstack] = c.currentvarstack;
+        c.currentstack++;
+        c.currentvarstack = c.numvar;
+        //load variable
+        for (var i = 0; i < s.stack; i++) {
+            c.var[c.currentvarstack + i] = runstep(s.param[i]);
+        }
+	    c.numvar += s.stack;
+        result = runstep(s.go);
+        if (s.next != 0) {
+            index = s.next;
+        } else
+			return result;
+	 } break;
+	 case RETURNSTATEMENT:
+	 { 
+        //load state
+        c.currentstack--;
+        c.currentvarstack = c.varstack[c.currentstack];
+        c.numvar -= s.stack;
+        result = (s.ret != 0) ? runstep(s.ret):initValue("");
+        return result;
+	 } break;
+  }
+ }
+}
+
+/**
+* main run
+*/
+function runcodeblock(id,callback)
+{
+    c.id=id;
+    c.callback=callback;
+ 	runstep(c.start);
+}
+
+function getuarray32(uarray,i)
+{
+	return (uarray[i+3] << 24 ) + ( uarray[i+2] << 16 ) + ( uarray[i+1] << 8 )+ ( uarray[i+0] );
+}
+
+function getuarray16(uarray,i)
+{
+	return ( uarray[i+1] << 8 )+ ( uarray[i+0] );
+}
+
+function getuarraystr(uarray,index,len)
+{
+	var result = "";
+	for (var j=0;j<len;j++)
+	{
+	  if (uarray[j+index]!=0) result+=String.fromCharCode(uarray[j+index]);
+	}
+	return result;
+}
+
+/**
+* main load
+*/
+function loadbinary(uarray)
+{
+   var i=0;
+   if (uarray.length<25) return null;
+   /**
+		uint32_t version;
+		uint32_t numstatement;
+		uint32_t start;		//start point
+		uint32_t numvar;	//num of global variable
+		uint32_t codesize;  //0=not available
+	*/
+   var version=getuarray32(uarray,0);
+   var numstatement=getuarray32(uarray,4);
+   var start=getuarray32(uarray,8);
+   var numvar=getuarray32(uarray,12);
+   var codesize=getuarray32(uarray,16);
+   console.log("version "+version);
+   console.log("num statement "+numstatement);
+   console.log("num global var "+numvar);   
+   console.log("start "+start);
+   console.log("source code size "+codesize);
+   i+=5*4;
+
+   var statement=new Array(numstatement); 
+   for (var k=1;k<numstatement;k++)
+   {
+	   var type=uarray[i];
+	   var next=getuarray32(uarray,i+1);
+	   var starttext=getuarray32(uarray,i+5);
+	   var endtext=getuarray32(uarray,i+9);
+	   i+=1+(3*4);
+	   var s;
+	   //console.log(k+" "+type+" "+next)
+	   switch (type) {
+	    case CONSTANTSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,value:{}};
+			/*		
+				uint32_t numproperties;
+			*/
+			var numproperties=getuarray32(uarray,i);
+			i+=4;
+			var pa=new Array(numproperties);
+			for (var j=0;j<numproperties;j++)
+			{
+				/*
+					char vartype;				//STRINGVAR,ARRAYVAR,STRUCTUREVAR,ARRAYOFSTRUCTUREVAR
+					uint32_t namelength;		//name of property (can be NULL)
+					uint32_t valuelength;		//array statement, can be 0
+					//name..
+					//value...
+				*/
+				pa[j]={name:"",value:""};
+				var namelen=getuarray32(uarray,i+1);
+				var valuelen=getuarray32(uarray,i+5);
+				i+=9;
+				pa[j].name=getuarraystr(uarray,i,namelen);
+				i+=namelen;
+				pa[j].value=getuarraystr(uarray,i,valuelen);
+				i+=valuelen;
+			}
+			s.value={numproperties:numproperties,properties:pa};
+	    } break;
+	    case VARIABLESTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,vartype:0,vid:0,properties:[]};
+			/*	struct BinaryDynamicVariablePropertiesStatementS {
+					char type;				//DYNAMIC
+					uint32_t next;
+				} PACKED;
+				struct BinaryStaticVariablePropertiesStatementS {
+					char type;				//STATIC 
+					uint32_t namelength;
+					//name...
+				} PACKED;
+				uint32_t vartype;		//GLOBALVAR, LOCALVAR
+				uint32_t vid;
+				uint32_t numproperties;
+				//properties...
+			*/	
+			s.vartype=getuarray32(uarray,i);
+			s.vid=getuarray32(uarray,i+4);
+			var numproperties=getuarray32(uarray,i+8);
+			i+=12;
+			var pa=new Array(numproperties);
+			for (var j=0;j<numproperties;j++)
+			{
+                if (uarray[i]==STATICVARPROPERTY) {
+					p={type:uarray[i],static:""};
+					var namelen=getuarray32(uarray,i+1);
+					p.static=getuarraystr(uarray,i+5,namelen);
+					i+=5+namelen;	
+				} else if (uarray[i]==DYNAMICVARPROPERTY) {
+					p={type:uarray[i],dynamic:0};
+					p.dynamic=getuarray32(uarray,i+1);
+					i+=5;
+				}		
+				pa[j]=p;
+			}
+			s.properties=pa;
+	    } break;
+		case BINDINGSTATEMENT: {	
+			s={type:type,next:next,start:starttext,end:endtext,left:0,varname:"",funcname:"",param:[]};		
+			/*	uint32_t left;				//variable statement
+			 	uint32_t varlength;			//variable name
+				uint32_t funclength;		//function name
+				uint32_t numparam;
+				//variable name
+				//function name
+				//param ...uint32_t
+			*/
+			s.left = getuarray32(uarray, i);
+			var varlen = getuarray32(uarray, i + 4);
+			var funclen=getuarray32(uarray,i+8);
+			var numparam=getuarray32(uarray,i+12);
+			i += 16;
+            if (varlen>0) { s.varname=getuarraystr(uarray,i,varlen); i+=varlen; }
+			if (funclen>0) { s.funcname=getuarraystr(uarray,i,funclen); i+=funclen; }
+			var param=new Array(numparam);
+			for (var j=0;j<numparam;j++)
+			{
+				param[j]=getuarray32(uarray,i);
+				i+=4;
+			}
+			s.param=param;
+		} break;
+		case CALLSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,go:0,stack:0,param:[]};	
+			/*				
+				uint32_t go;
+				uint32_t stack;
+				uint32_t numparam;
+				//param ...
+			*/
+			s.go=getuarray32(uarray,i);
+			s.stack=getuarray32(uarray,i+8);
+			var numparam=getuarray32(uarray,i+4);
+			i+=12;
+			var param=new Array(numparam);
+			for (var j=0;j<numparam;j++)
+			{
+				param[j]=getuarray32(uarray,i);
+				i+=4;
+			}
+			s.param=param;
+		} break;
+		case RETURNSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,stack:0,ret:0};	
+			/*	uint32_t stack;				//decrease stack
+				uint32_t ret;				//variable or constant to return
+			*/			
+			s.stack=getuarray32(uarray,i);
+			s.ret=getuarray32(uarray,i+4);
+			i+=8;
+		} break;
+		case COMPARESTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,compare:0,left:0,right:0};	
+			/*	char compare[4];			//== > >= < <=
+				uint32_t left;				//left statement
+				uint32_t right;				//right statement
+			*/
+			s.compare=String.fromCharCode(uarray[i]);
+			if (uarray[i+1]!=0) s+=String.fromCharCode(uarray[i+1]);
+			s.left=getuarray32(uarray,i+4);
+			s.right=getuarray32(uarray,i+8);
+			i+=12;
+		} break;	
+		case LOGICSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,logic:0,left:0,right:0};
+			/*	char logic;					//& | !
+				uint32_t left;
+				uint32_t right;
+			*/
+			s.logic=String.fromCharCode(uarray[i]);
+			s.left=getuarray32(uarray,i+1);
+			s.right=getuarray32(uarray,i+5);
+			i+=9;
+		} break;			
+		case EXPRESSIONSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,op:0,left:0,right:0};
+			/*	char op;					//+ - * / % & | xor
+				uint32_t left;
+				uint32_t right;
+			*/		
+			s.op=String.fromCharCode(uarray[i]);
+			s.left=getuarray32(uarray,i+1);
+			s.right=getuarray32(uarray,i+5);
+			i+=9;
+		} break;
+		case ASSIGNSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,left:0,right:0};
+			/*	uint32_t left;		//variable
+				uint32_t right;		//expression 
+			*/			
+			s.left=getuarray32(uarray,i);
+			s.right=getuarray32(uarray,i+4);
+			i+=8;
+		} break;	
+		case IFSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,logic:0,ifthen:0};
+			/*	uint32_t logic;			
+				uint32_t ifthen;
+			*/
+			s.logic=getuarray32(uarray,i);
+			s.ifthen=getuarray32(uarray,i+4);
+			i+=8;
+		} break;	
+		case FORSTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,begin:0,logic:0,step:0,dofor:0};
+			/*	uint32_t begin;		//x=0
+				uint32_t logic;		//x<10		
+				uint32_t step;		//x++
+				uint32_t dofor;
+			*/
+			s.begin=getuarray32(uarray,i);
+			s.logic=getuarray32(uarray,i+4);
+			s.step=getuarray32(uarray,i+8);
+			s.dofor=getuarray32(uarray,i+12);			
+			i+=16;
+		} break;
+		case WHILESTATEMENT: {
+			s={type:type,next:next,start:starttext,end:endtext,logic:0,dowhile:0};
+			/*	uint32_t logic;
+				uint32_t dowhile;
+			*/
+			s.logic=getuarray32(uarray,i);
+			s.dowhile=getuarray32(uarray,i+4);
+			i+=8;
+		} break;
+	   }
+	   //console.log(s);
+	   statement[k]=s;
+   }
+   //return in global
+   /* 
+	int type;				//always 0
+	int start;			    //index start always 1
+	int maxstack;			//max stack level
+	int currentstack;		//current stack for return statement
+	int* stack;				//return statement
+	int currentvarstack;	//current stack for variable
+	int* varstack;			//num of var stack
+	int numvar;				//num of var array 
+	Variable* var;			//variable stack
+	int numglobalvar;		//num of global variable
+	int numstatement;
+	Statement* statement;	//all statement
+	void *id;			    //for callback
+	Binding *func;
+	char* sourcecode;		//original
+	*/
+   c={start:start,maxstack:0,currentstack:0,stack:[],currentvarstack:0,varstack:[],numvar:0,var:[],numglobalvar:0,numstatement:numstatement,statement:statement,code:(codesize!=0)?getuarraystr(uarray,i,codesize):"",id:0,callback:null}
+   return c;
+}
+
+</script>
+<script>
+
+ function callback(v,varname,propertie,funcname,param)
+ {
+  var pname = "";
+	 for (var i = 0; i < param.length; i++) {
+		 if (pname != "") pname = pname + ",";
+		 pname = pname + param[i].properties[0].value;
+	 }
+
+  document.getElementById("result").value = document.getElementById("result").value +
+		 varname + ((propertie == "") ? "" : ".") + propertie + "." + funcname + " (" + pname + ")\n";
+ }
+
+function onloadbinary() {
+	 var http = new XMLHttpRequest();
+	 var id=document.getElementById("id").value;
+     http.open('GET', 'http://localhost:8080/load/file/'+id, true);
+	http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+	http.responseType = 'arraybuffer';
+	http.onreadystatechange = function() {
+        if (http.readyState==4) {
+         if(http.status == 200) {
+	       var uInt8Array = new Uint8Array(http.response); 
+	       loadbinary(uInt8Array);
+           console.log("done loading");
+	       runcodeblock(1,callback,c.start);
+         }
+        }
+    }
+    http.send();
+	}
+
+ function oncompile() {
+        var http = new XMLHttpRequest();
+        var param = "code=" + encodeURIComponent(document.getElementById("code").value);
+        http.open('POST', 'http://localhost:8080/compile/python', true);
+        http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        http.onreadystatechange = function () {
+            if (http.readyState == 4) {
+                if (http.status == 200) {
+                    const res = JSON.parse(http.response);
+                    document.getElementById("id").value=res.id;
+				}
+            }
+        }
+        http.send(param);
+    }
+</script>
+</head>
+<body>
+
+
+	<form action="">
+<textarea name="code" id="code" rows="10" width="20">
+x=10
+x=x+10
+print(x)
+</textarea><br />
+		<button type="button" onclick="oncompile()">Compile</button>
+	</form>
+
+	<br />
+	<br />
+	<br />
+
+	<form action="">
+		<input type="text" id="id" value=" " /><br />
+		<button type="button" onclick="onloadbinary();">Run!</button>
+	</form>
+
+	<br />
+	<br />
+	<br />
+
+	Result:<br/>
+	<textarea id="result" rows="10"></textarea>
+</body>
+</html>
