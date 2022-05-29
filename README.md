@@ -1,9 +1,9 @@
 # Simple Interpreter
   
 อินเทอร์พรีเตอร์ แบบง่าย เขียนขึ้นมาใน 2 ภาษา ได้แก่  
-Simple Python  
-Standard C  
-  
+C
+Javascript
+
 เพื่อใช้ในการศึกษาและการใช้งานพัฒนาโปรแกรมบนอุปกรณ์ IoT ที่ง่ายขึ้น  
   
 โค้ดประกอบด้วย 2 ส่วน  
@@ -14,3 +14,4 @@ Interpreter(อินเทอร์พรีเตอร์ หรือ โป
   
 # How to use
 
+double click on sample/test.html
