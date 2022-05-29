@@ -1,8 +1,8 @@
 # Simple Interpreter
   
 อินเทอร์พรีเตอร์ แบบง่าย เขียนขึ้นมาใน 2 ภาษา ได้แก่  
-standard C  
-Javascript  
+Simple Python  
+Standard C  
   
 เพื่อใช้ในการศึกษาและการใช้งานพัฒนาโปรแกรมบนอุปกรณ์ IoT ที่ง่ายขึ้น  
   
@@ -11,12 +11,6 @@ Javascript
 Parser(พาร์เซอร์ หรือ โปรแกรมแปลงภาษา) ทำหน้าที่อ่านโค้ส Python หรือภาษาอื่นๆ เพื่อแปลงเป็น ชุดคำสั่ง (bytecode) และส่งให้อินเทอร์พรีเตอร์รันคำสั่งต่อไป  
   
 Interpreter(อินเทอร์พรีเตอร์ หรือ โปรแกรมรันชุดคำสั่ง) ทำหน้าที่รันชุดคำสั่ง (bytecode) ที่ได้จาก พาร์เซอร์ เพื่อทำให้อุปกรณ์ IoT หรือ web browser หรือคอมพิวเตอร์ทำงานตามโค้สนั้นๆ  
-
-Simple Interpreter written in 2 languages which are  
-standard C  
-Javascript  
-  
-
   
 # How to use
 
