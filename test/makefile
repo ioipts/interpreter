@@ -7,21 +7,21 @@ OSMINOR=$(shell uname -m)
 endif
 
 ifeq ($(OS),Darwin)		
-  LOCAL_PATH=../../src
+  LOCAL_PATH=..
   GAME_PATH=.
   SEP=/
   CN=rm -rf 
   CFLAGS=-c -Wall -Wno-address-of-packed-member -F/Library/Frameworks
   LDFLAGS=-F/Library/Frameworks 
 else ifeq ($(OS),Linux)
-  LOCAL_PATH=../axisengine/src
+  LOCAL_PATH=..
   GAME_PATH=.
   LDFLAGS=
   CFLAGS=-c -Wall -Wno-unused-result -O3 
   SEP=/
   CN=rm -rf
 else ifeq ($(OS),Windows_NT)
-  LOCAL_PATH=..\..\src
+  LOCAL_PATH=..
   GAME_PATH=.
   SEP=\\
   CN=del /q
@@ -32,7 +32,7 @@ endif
 INCFLAGS=-I$(LOCAL_PATH) -I$(GAME_PATH) 
 
 SOURCES=$(GAME_PATH)$(SEP)pythonmain.cpp 
-SOURCES+=$(LOCAL_PATH)$(SEP)interpreter$(SEP)interpreter.cpp $(LOCAL_PATH)$(SEP)interpreter$(SEP)executefile.cpp $(LOCAL_PATH)$(SEP)interpreter$(SEP)pythonparser.cpp  
+SOURCES+=$(LOCAL_PATH)$(SEP)interpreter.cpp $(LOCAL_PATH)$(SEP)binaryparser.cpp $(LOCAL_PATH)$(SEP)pythonparser.cpp  
 
 OBJECTS=$(SOURCES:.cpp=.o)
 OBJECTS+=$(CSOURCES:.c=.o)
