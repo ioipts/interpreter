@@ -16,9 +16,8 @@ Interpreter(อินเทอร์พรีเตอร์ หรือ โป
 Python  
   
 ## How to run on device
-cd test  
-mkdir obj  
-build  
+cd sample  
+make  
 ./testinterpreter  
   
 ## How to run on web browser

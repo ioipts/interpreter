@@ -1,0 +1,4 @@
+/sample/*.o
+/sample/testinterpreter
+/sample/*.bin
+/.vscode

@@ -1,6 +1,6 @@
-#include "interpreter/interpreter.h"
-#include "interpreter/binaryparser.h"
-#include "interpreter/pythonparser.h"
+#include "interpreter.h"
+#include "binaryparser.h"
+#include "pythonparser.h"
 
 #if defined(_MSC_VER)
 	#define FILE_NAME "C:\\Users\\Pit\\Downloads\\l3.bin"

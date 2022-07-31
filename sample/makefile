@@ -1,6 +1,6 @@
 EXECUTABLE=testinterpreter
 CC=g++
-OBJ_PATH=obj
+OBJ_PATH=.
 ifndef OS
 OS=$(shell uname)
 OSMINOR=$(shell uname -m)
