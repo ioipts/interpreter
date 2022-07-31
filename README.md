@@ -3,7 +3,6 @@
 อินเทอร์พรีเตอร์ แบบง่าย เขียนขึ้นมาใน 2 ภาษา ได้แก่  
 standard C สำหรับ IoT  
 Javascript  สำหรับ web browser  
-  
 เพื่อใช้ในการศึกษาและการใช้งานพัฒนาโปรแกรมบนอุปกรณ์ IoT ที่ง่ายขึ้น  
   
 โค้ดประกอบด้วย 2 ส่วน  
@@ -16,5 +15,5 @@ Interpreter(อินเทอร์พรีเตอร์ หรือ โป
 ## Language support  
 Python  
   
-## How to use
-
+# How to use
+double click on sample/test.html
