@@ -15,5 +15,12 @@ Interpreter(อินเทอร์พรีเตอร์ หรือ โป
 ## Language support  
 Python  
   
-# How to use
-double click on sample/test.html
+## How to run on device
+cd test  
+mkdir obj  
+build  
+./testinterpreter  
+  
+## How to run on web browser
+deploy web/ on apache, nginx  
+browser to web/test.html  
