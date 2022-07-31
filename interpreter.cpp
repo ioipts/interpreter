@@ -17,7 +17,6 @@ Statement initStatement(char type)
 	 else if (type == ASSIGNSTATEMENT) s=(Statement)ALLOCMEM(sizeof(struct AssignmentStatementS));
 	 else if (type == IFSTATEMENT) s=(Statement)ALLOCMEM(sizeof(struct IfStatementS));
 	 else if (type == WHILESTATEMENT) s=(Statement)ALLOCMEM(sizeof(struct WhileStatementS));
-	 else if (type == FORSTATEMENT) s=(Statement)ALLOCMEM(sizeof(struct ForStatementS));
 	 else if (type == BINDINGSTATEMENT) s = (Statement)ALLOCMEM(sizeof(struct BindingStatementS));
 	 else if (type == CALLSTATEMENT) s = (Statement)ALLOCMEM(sizeof(struct CallStatementS));
 	 else if (type == RETURNSTATEMENT) s = (Statement)ALLOCMEM(sizeof(struct ReturnStatementS));
@@ -117,10 +116,10 @@ void setVariable(Value* v, const char* propertie, Value* value)
 		{
 			if (v->numproperties > 1) {
 				destroyProperties(s);
-				FREEMEM(s);
+				//FREEMEM(s);
 				v->numproperties--;
 				v->properties[i] = v->properties[v->numproperties];
-				v->properties = (Properties*)REALLOCMEM(v, sizeof(Properties) * v->numproperties);
+				v->properties = (Properties*)REALLOCMEM(v->properties, sizeof(Properties) * v->numproperties);
 			}
 			else { //left only one 
 				strcpy(v->properties[0].name, "");
@@ -172,7 +171,10 @@ Value* getVariable(Value* v, const char* property)
 		{
 			res->properties = (Properties*)REALLOCMEM(res->properties, sizeof(Properties) * (res->numproperties + 1));
 			res->properties[res->numproperties].name = (char*)ALLOCMEM(strlen(s->name) + 1);
-			strcpy(res->properties[res->numproperties].name, property);
+			char* n = s->name;
+			n += len;
+			if (*n == '.') n++;
+			strcpy(res->properties[res->numproperties].name, n);
 			res->properties[res->numproperties].value = (char*)ALLOCMEM(strlen(s->value) + 1);
 			strcpy(res->properties[res->numproperties].value, s->value);
 			res->numproperties++;
@@ -186,8 +188,11 @@ void variableArray(CodeBlock c, int vid)
 	if (vid>=c->numvar)
 	{
 		c->var = (Variable*)REALLOCMEM(c->var,sizeof(Variable)*(vid+1));
+		for (int i = c->numvar; i < vid + 1; i++)
+		{
+			c->var[i] = initVariable();
+		}
 		c->numvar = vid + 1;
-		c->var[vid] = initVariable();
 	}
 }
 
@@ -295,15 +300,8 @@ Value* runstep(CodeBlock c,int index)
  LogicStatement logic;
  Statement sta;
  CompareStatement compare;
- ForStatement forstatement;
  Statement s;
  char type;
- c->currentstack++;
- if (c->currentstack > c->maxstack)
- {
-	 c->currentstack--;
-	 return initValue("");
- }
  while (index != 0) {
 	 s = (Statement)c->statement[index];
 	 type = s->type;
@@ -438,7 +436,9 @@ Value* runstep(CodeBlock c,int index)
 			 case '^': { leftnum = (double)((int)leftnum ^ (int)rightnum); } break;
 			 }
 			 result = initValue(strlen(left->properties[0].value) + strlen(right->properties[0].value) + 64);
-			 sprintf(result->properties[0].value, "%lf", leftnum);
+			 sprintf(result->properties[0].value, "%.4lf", leftnum);
+			 char* dp = strstr(result->properties[0].value,".0000");
+			 if (dp != NULL) *dp = 0;
 		 }
 		 else {
 			 if (expression->op == '+') {
@@ -466,10 +466,9 @@ Value* runstep(CodeBlock c,int index)
 	 {
 		 VariableStatement var = (VariableStatement)c->statement[index];
 		 int vid = (var->vartype == GLOBALVAR) ? var->vid : var->vid + c->currentvarstack;
-		 printf("%d %d %d\n", vid, var->vid,var->vartype);
 		 variableArray(c, vid);
 		 char* property = getVariableProperty(c,var);
-		 Value* res=getVariable(c->var[(var->vartype==GLOBALVAR)? var->vid:var->vid+ c->currentvarstack],property);
+		 Value* res=getVariable(c->var[vid],property);
 		 FREEMEM(property);
 		 if (res == NULL) {
 			 result = initValue("");
@@ -482,23 +481,34 @@ Value* runstep(CodeBlock c,int index)
 	 case CALLSTATEMENT:
 	 {
 		 CallStatement call = (CallStatement)c->statement[index];
-		 //save state
-		 c->stack[c->currentstack] = call->next;
-		 c->varstack[c->currentstack] = c->currentvarstack;
-		 c->currentstack++;
-		 c->currentvarstack = c->numvar;
-		 //load variable
-		 c->var = (Variable*)REALLOCMEM(c->var,sizeof(Variable)*(c->currentvarstack+call->stack));
-		 for (int i = 0; i < call->stack; i++) {
-			 c->var[c->currentvarstack + i] = runstep(c, call->param[i]);
+		 if (c->currentstack > c->maxstack) {
+			 //failed
+			 if (call->next != 0) {
+				 index = call->next;
+			 }
+			 else
+				 return initValue("");
 		 }
-		 c->numvar += call->stack;
-		 result=runstep(c, call->go);
-		 if (call->next != 0) {
-			 destroyValue(result);
-			 index = call->next;
-		 } else 
-			return result;
+		 else {
+			 //save state
+			 c->stack[c->currentstack] = call->next;
+			 c->varstack[c->currentstack] = c->currentvarstack;
+			 c->currentstack++;
+			 //load variable
+			 c->var = (Variable*)REALLOCMEM(c->var, sizeof(Variable) * (c->numvar + call->stack));
+			 for (int i = 0; i < call->stack; i++) {
+				 c->var[c->numvar + i] = runstep(c, call->param[i]);
+			 }
+			 c->currentvarstack = c->numvar;
+			 c->numvar += call->stack;
+			 result = runstep(c, call->go);
+			 if (call->next != 0) {
+				 destroyValue(result);
+				 index = call->next;
+			 }
+			 else
+				 return result;
+		 }
 	 } break;
 	 case RETURNSTATEMENT:
 	 {
@@ -521,7 +531,7 @@ Value* runstep(CodeBlock c,int index)
 		 {
 			 param[i]=runstep(c, func->param[i]);
 		 }
-		 result = initValue("");
+		 result = initValue("");		//default
 		 char* prop = NULL;
 		 VariableStatement vs = NULL;
 		 if (func->left > 0) {
@@ -542,23 +552,6 @@ Value* runstep(CodeBlock c,int index)
 		 }
 		 if (result!=NULL) destroyValue(result);
 		 index = func->next;
-	 } break;
-	 case FORSTATEMENT:
-	 {
-		 forstatement = (ForStatement)c->statement[index];
-		 right=runstep(c, forstatement->begin);
-		 if (right != NULL) destroyValue(right);
-		 left=runstep(c, forstatement->logic);
-		 while (strcmp(left->properties[0].value, "1") == 0)
-		 {
-			 right=runstep(c, forstatement->dofor);
-			 if (right != NULL) destroyValue(right);
-			 left=runstep(c, forstatement->step);
-			 if (left != NULL) destroyValue(left);
-			 left=runstep(c, forstatement->logic);
-		 }
-		 destroyValue(left);
-		 index=forstatement->next;
 	 } break;
 	 case WHILESTATEMENT:
 	 {

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta content="text/html; charset=utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Python Interpreter</title>	
+<script src="js/interpreterv3.js"></script>
+<script>
+ function callback(v,varname,propertie,funcname,param)
+ {
+  var result=document.getElementById("result");
+  var pname = "";
+	 for (var i = 0; i < param.length; i++) {
+		 if (pname != "") pname = pname + ",";
+		 pname = pname + param[i].properties[0].value;
+     }
+  var t=varname+((propertie=="")?"":".")+propertie+((varname=="")?"":".")+funcname+" ("+pname+")";
+  result.value=result.value+t+"\n";
+  c.return=initValue("");
+ }
+
+ function ontest() {
+	var http = new XMLHttpRequest();
+	var name=document.getElementById("name").value;
+	http.open('GET', 'test/'+name+'.bin', true);
+	http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+	http.responseType = 'arraybuffer';
+	http.onreadystatechange = function() {
+        if (http.readyState==4) {
+         if(http.status == 200) {
+	       var uInt8Array = new Uint8Array(http.response); 
+	       loadbinary(uInt8Array);
+           console.log("done loading");
+           console.log(c.code);
+           c.callback=callback;
+           c.id=1;
+	       runcodeblock();
+         }
+        }
+    }
+    http.send();
+ }
+</script>
+</head>
+<body>
+
+<br />
+<br />
+<br />
+Result:<br/>
+<textarea id="result" rows="10" cols="50"></textarea>
+
+<br/>
+<br/>
+<br/>
+Run the pre-compiled binary.
+<form action="">
+	<input type="text" id="name" value="b10" /><br />
+    <button type="button" onclick="ontest();">Test!</button>
+</form>
+
+</body>
+</html>

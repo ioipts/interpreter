@@ -37,7 +37,7 @@
 * @file binaryparser.h
 * @brief save & load from buffer
 *
-* Written in standard C for highest portablily
+* Written in standard C for the best portabilily
 * 
 * 04/09/2021 tested 
 */

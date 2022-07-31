@@ -40,42 +40,15 @@
 * Bytecode interpreter with binding and debug information.
 * Written in standard C for the best portabilily
 *
-* Support
-* - simple python
-* - simple javascript
-* 
 * Feature and Limitation 
+* - binding function
 * - + - * / and or 
 * - support multi dimension of array
 * - subroutine
 * - always pass by value
 * - return a value, structure or array 
-* 
-* 
-* Example for Python
-* txt = "Hello my "+"friends"
-* x = txt.upper()
-* print(x)
-* 
-* Example for Javascript
-* string c;
-* int pos=c.substr("test");
-* 
-* 
-* mouse.setpos(10,10)  -> callback((variable list that is passed in initcodeblock),"mouse","setpos",param,2,result) getcodeparam(param,0) and getcodeparam(param,1)
-* x.a -> 
-* x.a = -> functioncallback("=","x","a"
-* this.moveto(obj1) ->"moveto" ,"this","obj1" -> result
-* x.trim();
-* x.b==y.c; -> x.b y.c
-* x.b+=1; -> 1+x.b  
-* 
-* this.moveto(obj1) -> callback("moveto" ,"this","obj1", -> result)
-* x.trim()
-* x.b==y.c -> x.b 
-* x.b+=1->1+x.b  	
-* 
-* 
+*  
+* 31/07/2022 remove decimal when print integer
 * 08/08/2021 mem leak for Python checked, able to run 
 */
 
@@ -108,7 +81,6 @@
 #define BINDINGSTATEMENT 7
 #define VARIABLESTATEMENT 8
 #define WHILESTATEMENT 9
-#define FORSTATEMENT 10
 #define CALLSTATEMENT 11
 #define RETURNSTATEMENT 12
 
@@ -136,7 +108,7 @@
 //expect )
 #define ERROREXPECTBRACKET -9
 //range expected (python)
-#define ERRORLOOPRANGE -10
+#define ERROREXPECTLOOPRANGE -10
 #define ERROREXPECTOPERATOR -11
 #define ERROREXPECTCOLON -12
 //= expected
@@ -147,6 +119,16 @@
 #define ERRORSUBPROCEDUREDUP -15
 #define ERRORSUBPROCEDURENOTFOUND -16
 #define ERRORSUBPROCEDUREINVALID -17
+
+#define ERRORBRACKET -18
+#define ERRORNOTEXPECTCOLON -19
+//in
+#define ERROREXPECTIN -20
+//\n
+#define ERROREXPECTENTER -21
+// [ ]
+#define ERROREXPECTARRAY -22
+
 
 #pragma pack(push,1)
 
@@ -234,7 +216,7 @@ struct CompareStatementS
  int next;
  int starttext;
  int endtext;
- char compare[4];	//== > >= < <=
+ char compare[4];	//== > >= < <= !
  int left;			//left statement
  int right;			//right statement
 };
@@ -261,19 +243,6 @@ struct ExpressionStatementS
  char op;	//+ - * / % & | xor
  int left;
  int right;
-};
-
-typedef struct ForStatementS* ForStatement;
-struct ForStatementS
-{
- char type;
- int next;
- int starttext;
- int endtext;
- int begin;		//x=0
- int logic;		//x<10		
- int step;		//x++
- int dofor;		//execute
 };
 
 typedef struct WhileStatementS* WhileStatement;
@@ -344,7 +313,7 @@ struct StatementS
 * 
 * @return true if ok
 */
-typedef bool __cdecl Binding(Variable data, const char* varname,const char* properties, const char* funcname, Value** param, int numparam, void* id,Value* result);
+typedef bool Binding(Variable data, const char* varname,const char* properties, const char* funcname, Value** param, int numparam, void* id,Value* result);
 
 /**
 * Byte code for interpreter
@@ -383,10 +352,12 @@ void destroyCodeBlock(CodeBlock c);
 Statement initStatement(char type);
 void destroyStatement(Statement s);
 
+Value* initValue(const char* value);
 Variable initVariable();
 void setVariable(Value* v, const char* propertie, Value* value);
 Value* getVariable(Value* v, const char* propertie);
 void destroyVariable(Variable v);
+void destroyValue(Value* v);
 
 /**
 * run

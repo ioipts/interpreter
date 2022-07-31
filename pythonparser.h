@@ -40,8 +40,10 @@
 * Written in C/C++11
 * 
 * def my_function():
-*  print("Hello from a function")
+*	print("Hello from a function")
 * 
+* 31/07/2022 multi dimension array, for x in range():, for x in array,  tested
+* 15/07/2022 def: tested
 * 15/05/2022 completed
 */
 
@@ -52,6 +54,6 @@
 *
 * @params statement Python statement
 */
-CodeBlock pythonParser(const char* statement);
+CodeBlock pythonParser(const char* statement, int* result, int* pos);
 
 #endif

@@ -122,7 +122,7 @@ struct BinaryExpressionStatementS
 	uint32_t right;
 } PACKED;
 
-struct BinaryForStatementS
+/*struct BinaryForStatementS
 {
 	char type;
 	uint32_t next;
@@ -132,7 +132,7 @@ struct BinaryForStatementS
 	int logic;		//x<10		
 	int step;		//x++
 	int dofor;
-} PACKED;
+} PACKED;*/
 
 struct BinaryWhileStatementS
 {
@@ -293,18 +293,23 @@ CodeBlock loadcodeblock(void* binary, size_t size)
 				if (funcbin->varlength > 0) {
 					func->varname = (char*)ALLOCMEM(funcbin->varlength + 1);
 				}
+				else
+					func->varname = NULL;
 				if (funcbin->funclength > 0) {
 					func->func = (char*)ALLOCMEM(funcbin->funclength+1);
 				}
+				else
+					func->func = NULL;
 				if (funcbin->numparam > 0) {
-					func->param = (int*)ALLOCMEM(funcbin->numparam);
+					func->param = (int*)ALLOCMEM(sizeof(int)*funcbin->numparam);
 				}
+				else
+					func->param = NULL;
 				func->starttext = funcbin->starttext;
 				func->endtext = funcbin->endtext;
 				func->next = funcbin->next;
 				func->numparam = funcbin->numparam;
 				func->left = funcbin->left;
-				func->param = (int*)ALLOCMEM(sizeof(int)*func->numparam);
 				bin += sizeof(struct BinaryBindingStatementS);
 				if (funcbin->varlength > 0) {
 					CPYMEM(func->varname, bin, funcbin->varlength);
@@ -376,7 +381,7 @@ CodeBlock loadcodeblock(void* binary, size_t size)
 				bin += sizeof(struct BinaryWhileStatementS);
 				c->statement[j] = (Statement)whilestatement;
 			} break;
-			case FORSTATEMENT: {
+			/*case FORSTATEMENT: {
 				struct BinaryForStatementS* forbin = (struct BinaryForStatementS*)bin;
 				ForStatement forstatement = (ForStatement)initStatement(FORSTATEMENT);
 				forstatement->starttext = forbin->starttext;
@@ -387,14 +392,14 @@ CodeBlock loadcodeblock(void* binary, size_t size)
 				forstatement->dofor = forbin->dofor;
 				bin += sizeof(struct BinaryForStatementS);
 				c->statement[j] = (Statement)forstatement;
-			} break;
+			} break;*/
 			default: {
 				//error
 			} break;
 		}
 
 	}
-	//read soruce code
+	//read source code
 	if (b->codesize > 0) {
 		c->sourcecode = (char*)ALLOCMEM(b->codesize+1);
 		CPYMEM(c->sourcecode,bin,b->codesize);
@@ -581,7 +586,7 @@ void* savecodeblock(CodeBlock code, size_t* size)
 				binaryif.ifthen = ifstatement->ifthen;
 				codeblockwrite(&buf, &binaryif, sizeof(struct BinaryIfStatementS));
 			} break;
-			case FORSTATEMENT:
+			/*case FORSTATEMENT:
 			{
 				struct BinaryForStatementS binaryfor;
 				ForStatement forstatement = (ForStatement)code->statement[j];
@@ -594,7 +599,7 @@ void* savecodeblock(CodeBlock code, size_t* size)
 				binaryfor.step = forstatement->step;
 				binaryfor.dofor = forstatement->dofor;
 				codeblockwrite(&buf, &binaryfor, sizeof(struct BinaryForStatementS));
-			} break;
+			} break;*/
 			case WHILESTATEMENT:
 			{
 				struct BinaryWhileStatementS binarywhile;
