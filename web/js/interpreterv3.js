@@ -1,6 +1,8 @@
 /**
  * non blocking version
  * 
+ * 05/11/22 fix calling & return
+ * 18/10/22 immediate mode return
  * 31/07/22 for loop
  * 28/07/22 calling & return
  * 25/07/22 remove if 
@@ -29,6 +31,9 @@ const STOP_STATE = 0;
 const PLAY_STATE = 1;
 const PAUSE_STATE = 2;
 
+const INTERPRETER_TIMER = 1;
+const INTERPRETER_LOOP = 2000;
+var INTERPRETER_IMMEDIATE = false;
 const DEBUG = 0;
 
 /********* code block & result *****************/
@@ -36,6 +41,7 @@ var pauseFlag=STOP_STATE;
 var cInterval;
 var c=null;
 var r=null;
+var tick=new Date();
 
 function initValue(value) {
 	var p = { name: "", value: value };
@@ -130,17 +136,17 @@ function getVariableProperty(v,i) {
 */
 function runstep() {
 		if (c.index==0) { 
-			console.log("end"); 
+			//console.log("end"); 
 			clearInterval(cInterval); 
 			postMessage({type:"stop"});
-			return; 
+			return false; 
 		}	//end
 		var s = c.statement[c.index];
 		var type = s.type;
-		if (c.state===null) {			
-		 console.log("index "+c.index);
-		 console.log("type "+type);
-		}
+		//if (c.state===null) {			
+		// console.log("index "+c.index);
+		// console.log("type "+type);
+		//}
 		switch (type) {
 			case CONSTANTSTATEMENT:
 				{	//tested 19/07/2022
@@ -221,7 +227,7 @@ function runstep() {
 						c.statestackindex++;
 						c.index=s.left;
 						c.state=null;
-						return ;
+						return false;
 					} else if (c.state.s==1) {
 						c.state.left=c.return;
 						c.state.s=2;
@@ -229,7 +235,7 @@ function runstep() {
 						c.statestackindex++;
 						c.index=s.right;
 						c.state=null;
-						return ;
+						return false;
 					} else if (c.state.s==2) {
 						c.state.right=c.return;
 					} 
@@ -269,7 +275,7 @@ function runstep() {
 						c.statestackindex++;
 						c.index=s.left;
 						c.state=null;
-						return ;
+						return false;
 					} else if (c.state.s==1) {
 						c.state.left=c.return;
 						c.state.s=2;
@@ -277,7 +283,7 @@ function runstep() {
 						c.statestackindex++;
 						c.index=s.right;
 						c.state=null;
-						return ;
+						return false;
 					} else if (c.state.s==2) {
 						c.state.right=c.return;
 					} 
@@ -319,7 +325,7 @@ function runstep() {
 						    c.statestackindex++;
 							c.index=s.param[c.state.paramindex];
 							c.state=null;
-							return ;
+							return false;
 						} else {
 							c.state.s=1;
 							c.return=initValue("");	//dummy		
@@ -334,7 +340,7 @@ function runstep() {
 							if (c.state.vsindex<vs.properties.length) {							
 								c.state.vsindex++;		//in case of dynamic
 								getVariableProperty(vs,c.state.vsindex-1);
-								return ;
+								return false;
 							} else c.state.s=2;
 						} else c.state.s=2;	
 					}
@@ -345,7 +351,7 @@ function runstep() {
 						c.return=null;
 						c.callback((s.left==0) ? null : ((vs.vartype == GLOBALVAR) ? c.var[vs.vid] : c.var[vs.vid + c.currentvar]), s.varname, prop, s.funcname, c.state.param, s.param.length, c.id);
 					}
-					if ((c.state.s==3) && (c.return==null)) { return ; }	//wait for result
+					if ((c.state.s==3) && (c.return==null)) { return true; }	//wait for result
 					
 				} break;
 			case ASSIGNSTATEMENT:
@@ -359,7 +365,7 @@ function runstep() {
 						c.statestackindex++;
 						c.index=s.right;
 						c.state=null;
-						return ;
+						return false;
 					} else if (c.state.s==1) {
 						c.state.s=2;
 						c.state.right=c.return;
@@ -374,7 +380,7 @@ function runstep() {
 							if (c.state.vsindex<left.properties.length) {			
 								c.state.vsindex++;		//in case of dynamic
 								getVariableProperty(c.state.left,c.state.vsindex-1);
-								return ;
+								return false;
 							} 
 						}
 					}
@@ -395,7 +401,7 @@ function runstep() {
 						c.index=s.ifthen;
 						c.state=null;
 						c.return=null;
-						return ;
+						return false;
 					} else {	
 						if (c.state.s==0) {			
 							c.state.s=1;
@@ -403,19 +409,19 @@ function runstep() {
 							c.statestackindex++;
 							c.index=s.logic;				//var left = runstep(s.logic);
 							c.state=null;
-							return ;
+							return false;
 						}
 						if (c.return.properties[0].value == "1") {
 							c.index=s.ifthen;
 							c.state=null;
 							c.return=null;
-							return ;
+							return false;
 						}
 						else {
 							c.index=s.next;
 							c.state=null;
 							c.return=null;
-							return ;
+							return false;
 						}
 					}
 				} break;
@@ -430,7 +436,7 @@ function runstep() {
 							c.statestackindex++;
 							c.index=s.logic;				//var left = runstep(s.logic);
 							c.state=null;
-							return ;
+							return false;
 					} else if (c.state.s==1) {
 						if (c.return.properties[0].value==="1")
 						{
@@ -439,7 +445,7 @@ function runstep() {
 							c.statestackindex++;
 							c.index=s.dowhile;				//var left = runstep(s.while);
 							c.state=null;
-							return ;
+							return false;
 						} //then next
 					}
 				} break;
@@ -463,7 +469,7 @@ function runstep() {
 								c.statestackindex++;
 								c.index=s.param[0];				
 								c.state=null;
-								return ;
+								return false;
 							} else 
 								c.state.s=2;
 						} else if (c.state.s==1) {
@@ -474,7 +480,7 @@ function runstep() {
 								c.statestackindex++;
 								c.index=s.param[c.state.param];				
 								c.state=null;
-								return ;
+								return false;
 							} else {
 								c.state.s=2;
 								c.currentvar = c.numvar;	//begin with param
@@ -487,7 +493,7 @@ function runstep() {
 							c.statestackindex++;
 							c.index=s.go;			
 							c.state=null;
-							return ;
+							return false;
 						}
 					}
 				} break;
@@ -496,22 +502,27 @@ function runstep() {
 					if (c.state==null) { 
 						c.state={index:c.index,s:0};	//first state	
 					}
-					if (c.state.s==0) {
+					if (c.state.s == 0) {
 						//load state
-						c.state.s=1;
+						if (s.ret != 0) {
+							c.state.s = 1;
+							c.statestack[c.statestackindex] = c.state;
+							c.statestackindex++;
+							c.index = s.ret;
+							c.state = null;
+							return false;
+						} else {
+							c.state.s = 2;
+							c.return = initValue("");		//default
+						}
+					} else if (c.state.s == 1) {
+						c.state.s = 2;
+					}
+					if (c.state.s == 2) {
 						c.stackindex--;
 						c.currentvar = c.varstack[c.stackindex];
-						c.numvar -= s.stack;
-						if (s.ret!=0) {
-							c.state.s=1;
-							c.statestack[c.statestackindex]=c.state;
-							c.statestackindex++;
-							c.index=s.ret;				
-							c.state=null;
-							return ;
-						} else {
-							c.return=initValue("");		//default
-						}
+						//c.numvar -= s.stack;
+						c.numvar = c.currentvar + s.stack;
 					}
 				} break;
 		}
@@ -527,17 +538,22 @@ function runstep() {
 			c.index=0;
 			c.state=null;
 		}
+		return false;
 }
 
-/**
-* step run
-*/
+function runloop() {
+	for (i=0;i<INTERPRETER_LOOP;i++)
+	{
+		runstep();
+	}
+}
+
 function runcodeblock() {
 	c.index=c.start;
 	c.state=null;
 	c.statestackindex=0;
 	pauseFlag=PLAY_STATE;
-	cInterval =setInterval(runstep,1);
+	cInterval =setInterval(runloop,INTERPRETER_TIMER);
 }
 
 function pausecodeblock() {
@@ -550,7 +566,7 @@ function pausecodeblock() {
 function resumecodeblock() {
 	if (pauseFlag==PAUSE_STATE) {
 		pauseFlag=PLAY_STATE;
-		cInterval =setInterval(runstep,1);
+		cInterval =setInterval(runloop,INTERPRETER_TIMER);
 	}
 }
 
@@ -712,7 +728,7 @@ function loadbinary(uarray) {
 				s.param = param;
 			} break;
 			case RETURNSTATEMENT: {
-				s = { type: type, next: next, start: starttext, end: endtext, stack: 0, ret: 0 };
+				s = { type: type, next: 0, start: starttext, end: endtext, stack: 0, ret: 0 };
 				/*	uint32_t stack;				//decrease stack
 					uint32_t ret;				//variable or constant to return
 				*/
@@ -834,29 +850,68 @@ function loadbinary(uarray) {
 	return c;
 }
 
+function defaultfunc(v,varname,propertie,funcname,param)
+{
+	if (funcname=="getTick") {
+    	c.return=initValue((new Date().getTime()-tick.getTime()).toString());
+  	} else if (funcname=="resetTick") {
+    	tick=new Date();
+    	c.return=initValue("");
+    } else if (funcname=="sin") {
+
+    } else if (funcname=="cos") {
+
+    } else if (funcname=="tan") {
+
+    } else if (funcname=="asin") {
+
+    } else if (funcname=="acos") {
+
+    } else if (funcname=="len") {
+
+    } else if (funcname=="index") {
+
+    } else if (funcname=="random") {
+		c.return=initValue(Math.random().toString());
+    } else if (funcname=="pow") {
+		c.return=initValue(Math.pow(parseFloat(param[0].properties[0].value),parseFloat(param[1].properties[0].value)).toString());
+	} else if (funcname=="print") {
+		console.log(param[0].properties[0].value);
+		c.return=initValue("");
+	} else return false;
+    return true;
+}
+
 function workercallback(v,varname,propertie,funcname,param)
 {
-	postMessage({type:"callback",v:v,varname:varname,propertie:propertie,funcname:funcname,param:param});
+	if (!defaultfunc(v,varname,propertie,funcname,param)) {
+		postMessage({type:"callback",v:v,varname:varname,propertie:propertie,funcname:funcname,param:param});
+		//immediate
+		if (INTERPRETER_IMMEDIATE) c.return=initValue("");
+	}
 }
 
 addEventListener("message", event => {
 	const t=event.data.type;
 	if (t=="start") {
-	 c=event.data.codeblock;
-	 c.id=event.data.id;
-	 c.callback=workercallback;
-	 runcodeblock();
+		c=event.data.codeblock;
+		c.id=event.data.id;
+		c.callback=workercallback;
+		tick=new Date();
+		runcodeblock();
 	} else 
 	if (t=="pause") {
-		pauseFlag=PAUSE_STATE;
-		clearInterval(cInterval);
+		pausecodeblock();
 	} else 
 	if (t=="resume") {
-		pauseFlag=PLAY_STATE;
-		cInterval =setInterval(runstep,1);
+		resumecodeblock();
 	} else 
 	if (t=="return") {
-		console.log("return");
-		c.return=event.data.return;
+		//console.log("return");
+		if (!INTERPRETER_IMMEDIATE) c.return=event.data.return;
+	} else 
+	if (t=="immediate") {
+		INTERPRETER_IMMEDIATE=event.data.immediate;
 	}
 });
+

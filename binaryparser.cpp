@@ -122,18 +122,6 @@ struct BinaryExpressionStatementS
 	uint32_t right;
 } PACKED;
 
-/*struct BinaryForStatementS
-{
-	char type;
-	uint32_t next;
-	uint32_t starttext;
-	uint32_t endtext;
-	int begin;		//x=0
-	int logic;		//x<10		
-	int step;		//x++
-	int dofor;
-} PACKED;*/
-
 struct BinaryWhileStatementS
 {
 	char type;
@@ -168,7 +156,7 @@ CodeBlock loadcodeblock(void* binary, size_t size)
 {
 	if (binary == NULL) return NULL;
 	BinaryCodeBlock b = (BinaryCodeBlock)binary;
-	CodeBlock c = initCodeBlock(10000);
+	CodeBlock c = initCodeBlock(30);
 	c->start = b->start;
 	c->numstatement = b->numstatement;
 	c->numglobalvar = b->numvar;

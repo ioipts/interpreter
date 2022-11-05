@@ -251,8 +251,8 @@ CodeBlock initCodeBlock(int maxstack)
 	CodeBlock c = (CodeBlock)ALLOCMEM(sizeof(struct CodeBlockS));
 	SETMEM(c, 0, sizeof(struct CodeBlockS));
 	c->maxstack = maxstack;
-	c->stack = (int*)ALLOCMEM(sizeof(int) * maxstack);
-	c->varstack = (int*)ALLOCMEM(sizeof(int) * maxstack);
+	c->stack = (int*)ALLOCMEM(sizeof(int) * (maxstack+1));
+	c->varstack = (int*)ALLOCMEM(sizeof(int) * (maxstack+1));
 
 	return c;
 }
@@ -316,7 +316,7 @@ Value* runstep(CodeBlock c,int index)
 		 {
 			 VariableStatement vs = (VariableStatement)sta;
 			 char* property = getVariableProperty(c, vs);
-			 int vid = (vs->vartype == GLOBALVAR) ? vs->vid : vs->vid + c->currentvarstack;
+			 int vid = (vs->vartype == GLOBALVAR) ? vs->vid : c->currentvarstack + vs->vid;
 			 variableArray(c, vid);
 			 setVariable(c->var[vid], property, right);
 			 FREEMEM(property);
@@ -481,8 +481,8 @@ Value* runstep(CodeBlock c,int index)
 	 case CALLSTATEMENT:
 	 {
 		 CallStatement call = (CallStatement)c->statement[index];
-		 if (c->currentstack > c->maxstack) {
-			 //failed
+		 if (c->currentstack >= c->maxstack) {
+			 //overflow
 			 if (call->next != 0) {
 				 index = call->next;
 			 }
@@ -496,8 +496,11 @@ Value* runstep(CodeBlock c,int index)
 			 c->currentstack++;
 			 //load variable
 			 c->var = (Variable*)REALLOCMEM(c->var, sizeof(Variable) * (c->numvar + call->stack));
-			 for (int i = 0; i < call->stack; i++) {
+			 for (int i = 0; i < call->numparam; i++) {
 				 c->var[c->numvar + i] = runstep(c, call->param[i]);
+			 }
+			 for (int i = call->numparam; i < call->stack; i++) {
+				 c->var[c->numvar+i]= initVariable();
 			 }
 			 c->currentvarstack = c->numvar;
 			 c->numvar += call->stack;
@@ -513,14 +516,15 @@ Value* runstep(CodeBlock c,int index)
 	 case RETURNSTATEMENT:
 	 {
 		 ReturnStatement ret = (ReturnStatement)c->statement[index];
-		 for (int i = 0; i < ret->stack; i++) {
-			 destroyVariable(c->var[c->currentvarstack+i]);
-		 }
+		 //get the return first
+		 result = (ret->ret != 0) ? runstep(c, ret->ret) : initValue("");
 		 //load state
 		 c->currentstack--;
 		 c->currentvarstack = c->varstack[c->currentstack];
-		 c->numvar -= ret->stack;
-		 result=(ret->ret != 0) ? runstep(c, ret->ret):initValue("");
+		 for (int i = c->currentvarstack+ret->stack; i < c->numvar; i++) {
+			 destroyVariable(c->var[i]);
+		 }
+		 c->numvar = c->currentvarstack+ret->stack;
 		 return result;
 	 } break;
 	 case BINDINGSTATEMENT:
@@ -547,7 +551,6 @@ Value* runstep(CodeBlock c,int index)
 		 }
 		 FREEMEM(param);
 		 if (func->next == 0) {
-			 c->currentstack--;
 			 return result;
 		 }
 		 if (result!=NULL) destroyValue(result);
@@ -569,7 +572,6 @@ Value* runstep(CodeBlock c,int index)
 	 } break;
 	 }
  }
- c->currentstack--;
  return NULL;
 }
 

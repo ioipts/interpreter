@@ -207,6 +207,7 @@ struct BindingStatementS
 	 char* func;				//function name
 	 char numparam;
 	 int* param;				//point to variable, constant, another binding or function
+	 bool isexecute;
 };
 
 typedef struct CompareStatementS* CompareStatement;
@@ -288,6 +289,7 @@ struct CallStatementS {
 	int numparam;
 	int* param;					//point to variable or binding
 	int stack;					//increase stack and load param in variable
+	bool isexecute;
 };
 
 typedef struct ReturnStatementS* ReturnStatement;
