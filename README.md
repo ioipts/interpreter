@@ -21,7 +21,7 @@ Python
 ## How to run on device
 cd sample  
 make  
-./testinterpreter  
+./testinterpreter test/def.py ../web/test/def.bin  
   
 ## How to run on web browser
 deploy web/ on apache, nginx  
