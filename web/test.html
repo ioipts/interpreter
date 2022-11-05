@@ -31,11 +31,20 @@
          if(http.status == 200) {
 	       var uInt8Array = new Uint8Array(http.response); 
 	       loadbinary(uInt8Array);
-           console.log("done loading");
-           console.log(c.code);
-           c.callback=callback;
-           c.id=1;
-	       runcodeblock();
+           console.log("start");
+           var interpreterworker = new Worker('js/interpreterv3.js');
+           //immediate mode is on
+           interpreterworker.postMessage({type:"immediate",immediate:true});
+           interpreterworker.postMessage({type:"start",codeblock:c,id:1});
+           interpreterworker.addEventListener("message", event => { 
+            var t=event.data.type;
+            if (t=="callback") {
+                //no need to post returning message for immediate mode 
+                //interpreterworker.postMessage({type:"return",return:initValue("1")});
+            } else if (t=="stop") {
+              console.log("stop");
+            }
+            });
          }
         }
     }
