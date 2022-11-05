@@ -26,3 +26,6 @@ make
 ## How to run on web browser
 deploy web/ on apache, nginx  
 browser to web/test.html  
+
+# Author
+- Pit Suwongs พิทย์ สุวงศ์ (admin@ornpit.com)  
