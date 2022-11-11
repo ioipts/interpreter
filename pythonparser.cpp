@@ -8,7 +8,7 @@
 #define ISALPHA(S) (((S)>='a') && ((S)<='z')) || (((S)>='A') && ((S)<='Z'))
 #define ISNUM(S) ((((S)>='0') && ((S)<='9')))
 #define ISREALNUM(S) (((S)>='0') && ((S)<='9')) || ((S)=='.')
-#define ISNAME(S) ((((S)>='a') && ((S)<='z')) || (((S)>='A') && ((S)<='Z')) || (((S)>='0') && ((S)<='9')))
+#define ISNAME(S) ((((S)>='a') && ((S)<='z')) || (((S)>='A') && ((S)<='Z')) || (((S)>='0') && ((S)<='9')) || ((S)=='_'))
 #define ISCOMPARE(S)  ((strstr((S),"==")==(S)) || (strstr((S),"<")==(S))  || (strstr((S),">")==(S)) || (strstr((S),"<=")==(S)) || (strstr((S),">=")==(S)) || (strstr((S),"!=")==(S)))
 #define ISOPERATOR(S) (((S)=='+') || ((S)=='-') || ((S)=='*') || ((S)=='/') || ((S)=='%'))
 #define ISLOGIC(S) ((strstr((S),"&&")==(S)) || (strstr((S),"||")==(S))) 
@@ -63,6 +63,7 @@ struct PythonCodeS {
 	std::vector<std::string> localVar;
 	std::vector<Statement> statement;
 	std::vector<PythonSubprocedure*> subprocedure;
+	//std::vector<int> laststatement;
 };
 
 char* pythonCompareParser(char* statement, PythonCode code, int* result);
@@ -558,7 +559,7 @@ char* pythonExecuteParser(char* statement, char* next,PythonCode code, int* resu
 	}
 	statement = trimToken(statement);
 	if (*statement == '(') {			//binding
-		VariableStatement vstate=(VariableStatement)code->statement[rl];
+		VariableStatement vstate = (VariableStatement)code->statement[rl];
 		if (vstate->property[vstate->numproperty - 1].type == DYNAMICVARPROPERTY) {
 			*result = ERRORSYNTAX;
 			return statement;
@@ -570,8 +571,12 @@ char* pythonExecuteParser(char* statement, char* next,PythonCode code, int* resu
 		BindingStatement b = (BindingStatement)initStatement(BINDINGSTATEMENT);
 		b->left = rl;
 		b->varname = token;
-		b->func = vstate->property[vstate->numproperty - 1].staticproperty;
-		vstate->numproperty--;
+		b->func = NULL;
+		//incase id( no property
+		if (vstate->numproperty > 0) {
+			b->func = vstate->property[vstate->numproperty - 1].staticproperty;
+			vstate->numproperty--;
+		}
 		*result = code->statement.size();
 		code->statement.push_back((Statement)b);
 		int rp;
@@ -641,7 +646,7 @@ ConstantStatement pythonNewConstant(const char* token)
 }
 
 /**
-* get array  []
+* get array []
 */
 char* pythonArrayParser(char* statement, PythonCode code, int* result,int *resultfirst,int* varid)
 {
@@ -671,6 +676,40 @@ char* pythonArrayParser(char* statement, PythonCode code, int* result,int *resul
 	*resultfirst = 0;
 	*result = 0;
 	code->globalVar.push_back("");
+	//empty array-> constant
+	if (*statement == ']') {
+		ConstantStatement right = (ConstantStatement)initStatement(CONSTANTSTATEMENT);
+		right->constant.numproperties = 1;
+		right->constant.properties = (Properties*)ALLOCMEM(sizeof(Properties));
+		right->constant.properties[0].name = (char*)ALLOCMEM(1);
+		right->constant.properties[0].name[0] = 0;
+		right->constant.properties[0].value = (char*)ALLOCMEM(2);
+		strcpy(right->constant.properties[0].value, "1");
+		right->starttext = 0;
+		right->endtext = 0;
+		int rl = code->statement.size();
+		code->statement.push_back((Statement)right);
+
+		AssignmentStatement a = (AssignmentStatement)initStatement(ASSIGNSTATEMENT);
+		a->endtext = a->starttext = 0;
+		VariableStatement var = (VariableStatement)initStatement(VARIABLESTATEMENT);
+		var->type = VARIABLESTATEMENT;
+		*varid = var->vid = code->globalVar.size() - 1;
+		var->vartype = GLOBALVAR;
+		var->starttext = var->endtext = 0;
+		var->numproperty = 1;
+		var->property = (VariableProperty*)ALLOCMEM(sizeof(VariableProperty) * 1);
+		var->property[0].type = STATICVARPROPERTY;
+		var->property[0].staticproperty = (char*)ALLOCMEM(10);
+		sprintf(var->property[0].staticproperty, "0");
+		a->left = code->statement.size();
+		code->statement.push_back((Statement)var);
+		a->right = rl;
+		*result=*resultfirst = code->statement.size();
+		code->statement.push_back((Statement)a);
+		statement++;
+		return statement;
+	}
 	while (dimension > 0)
 	{
 		int rl;
@@ -1022,7 +1061,7 @@ char* pythonCompareParser(char* statement, PythonCode code, int* result)
 		com->right = r2;
 		com->starttext = ptr - code->sourcecode;
 		com->endtext = statement - code->sourcecode;
-		strcpy(com->compare, "==");
+		strcpy(com->compare, "=");
 		*result = code->statement.size();
 		code->statement.push_back((Statement)com);
 		return statement;
@@ -1195,6 +1234,39 @@ char* pythonExpressionParser(char* statement, PythonCode code, int* result)
 }
 
 /**
+* set next for
+* def, if, while, for
+*/
+void pythonSetNext(PythonCode code, int start, int end, int next)
+{
+	for (int i = start; i < end; i++)
+	{
+		Statement s = code->statement[i];
+		if (s->next == 0) {
+			if (s->type == ASSIGNSTATEMENT) {
+				s->next = next;
+			}
+			else if (s->type == IFSTATEMENT) {
+				IfStatement ifs = (IfStatement)code->statement[i];
+				if (ifs->ifthen == 0) ifs->ifthen = next;
+				if (ifs->next == 0) ifs->next = next;
+			}
+			else if (s->type == WHILESTATEMENT) {
+				s->next = next;
+			}
+			else if (s->type == CALLSTATEMENT) {
+				CallStatement c = (CallStatement)code->statement[i];
+				if (c->isexecute) c->next = next;
+			}
+			else if (s->type == BINDINGSTATEMENT) {
+				BindingStatement c = (BindingStatement)code->statement[i];
+				if (c->isexecute) c->next = next;
+			}
+		}
+	}
+}
+
+/**
 * Finish 31/07/2022
 */
 char* pythonForParser(char* statement, PythonCode code,int currentblock, int* result,int *resultfirst)
@@ -1298,7 +1370,8 @@ char* pythonForParser(char* statement, PythonCode code,int currentblock, int* re
 		code->statement.push_back((Statement)e1);
 		int fa2 = code->statement.size();
 		code->statement.push_back((Statement)a2);
-		code->statement[r1]->next = fa2;
+		pythonSetNext(code, r2, r1+1, fa2);
+		//code->statement[r1]->next = fa2;
 	}
 	//compile for array
 	else {		
@@ -1380,7 +1453,8 @@ char* pythonForParser(char* statement, PythonCode code,int currentblock, int* re
 		code->statement.push_back((Statement)e1);
 		int fa3 = code->statement.size();
 		code->statement.push_back((Statement)a3);
-		code->statement[r1]->next = fa3;
+		pythonSetNext(code, r2, r1+1, fa3);
+		//code->statement[r1]->next = fa3;
 
 	}
 	*result = fw;		//last
@@ -1422,6 +1496,7 @@ char* pythonWhileParser(char* statement, PythonCode code,int currentblock, int* 
 	}
 	whilestatement->dowhile = r2;
 	*result = rw;
+	pythonSetNext(code, r2, code->statement.size(), rw);
 	return statement;
 }
 
@@ -1617,31 +1692,7 @@ char* pythonDefParser(char* statement, PythonCode code,int currentblock, int* re
 	rs->ret = 0;
 	rs->stack=sub->numstack;
 	code->statement.push_back((Statement)rs);
-	for (int i = startstatement; i < rl; i++)
-	{
-		Statement s = code->statement[i];
-		if (s->next == 0) {
-			if (s->type == ASSIGNSTATEMENT) {
-				s->next = rl;
-			}
-			else if (s->type == IFSTATEMENT) {
-				IfStatement ifs = (IfStatement)code->statement[i];
-				if (ifs->ifthen == 0) ifs->ifthen = rl;
-				if (ifs->next == 0) ifs->next = rl;
-			}
-			else if (s->type == WHILESTATEMENT) {
-				s->next = rl;
-			}
-			else if (s->type == CALLSTATEMENT) {
-				CallStatement c = (CallStatement)code->statement[i];
-				if (c->isexecute) c->next = rl;
-			}
-			else if (s->type == BINDINGSTATEMENT) {
-				BindingStatement c = (BindingStatement)code->statement[i];
-				if (c->isexecute) c->next = rl;
-			}			
-		}
-	}
+	pythonSetNext(code, startstatement, rl, rl);	//set next
 	return statement;
 }
 
@@ -1677,20 +1728,6 @@ char* pythonBlock(char* statement, int* block)
 	return statement;
 }
 
-/*
-* set jump in if clause
-* 10/5/2022
-*/
-void pythonNextIf(PythonCode code, std::vector<int> iflaststatement, int r)
-{
-	for (int i = 0; i < iflaststatement.size(); i++)
-	{
-		//return (no need for the next) 
-		if (iflaststatement[i]!=0)
-		code->statement[iflaststatement[i]]->next = r;
-	}
-}
-
 /**
 * parsing source code to codeblock
 * 
@@ -1710,9 +1747,7 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 	char* token=NULL;
 	Statement last = NULL;
 	int ifstatement=0;
-	std::vector<int> iflaststatement;
-	int fw,lw;
-	int previfstatement = 0;
+	int fw=0,lw=0;
 	*resultfirst = 0;
 	while (*statement != 0)
 	{
@@ -1742,7 +1777,6 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 			else if (block == currentblock) {
 				if (type == ALPHATYPECODE) {
 					fw = lw = 0;
-					previfstatement = ifstatement;
 					if (strcmp(token, "if") == 0)
 					{
 						FREEMEM(token);
@@ -1750,9 +1784,9 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 						if (fw > 0) {
 							code->statement[fw]->starttext = ptr-code->sourcecode;
 							code->statement[fw]->endtext = statement-code->sourcecode;
-							iflaststatement.clear();
+							//11 nov not clear it yet							
+							if (ifstatement!=0) pythonSetNext(code, ifstatement,fw, fw);
 							r = ifstatement = fw;
-							iflaststatement.push_back(lw);
 						} else {
 							*result = fw;
 							return statement;
@@ -1770,8 +1804,9 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 						if (fw > 0) {
 							code->statement[fw]->starttext = ptr - code->sourcecode;
 							code->statement[fw]->endtext = statement - code->sourcecode;
-							r = ifstatement = fw;
-							iflaststatement.push_back(lw);
+							r = fw; 
+							// ifstatement = fw;
+							//code->laststatement.push_back(lw);
 						} else {
 							*result = fw;
 							return statement;
@@ -1789,8 +1824,9 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 						if (fw > 0) {
 							code->statement[fw]->starttext = ptr - code->sourcecode;
 							code->statement[fw]->endtext = statement - code->sourcecode;
-							r = ifstatement = fw;
-							iflaststatement.push_back(lw);
+							r = fw; 
+							// ifstatement = fw;
+							//code->laststatement.push_back(lw);
 						} else {
 							*result = fw;
 							return statement;
@@ -1798,7 +1834,6 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 					}
 					else if (strcmp(token, "for") == 0)
 					{
-						ifstatement = 0;
 						FREEMEM(token);
 						statement = pythonForParser(statement, code, currentblock, &r,&rf);
 						if (r > 0) {
@@ -1808,10 +1843,11 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							*result = r;
 							return statement;
 						}
+						if (ifstatement != 0) pythonSetNext(code, ifstatement, r, r);
+						ifstatement = 0;
 					}
 					else if (strcmp(token, "while") == 0)
 					{
-						ifstatement = 0;
 						FREEMEM(token);
 						statement = pythonWhileParser(statement, code, currentblock, &r);
 						if (r > 0) {
@@ -1821,10 +1857,11 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							*result = r;
 							return statement;
 						}
+						if (ifstatement != 0) pythonSetNext(code, ifstatement, r, r);
+						ifstatement = 0;
 					}
 					else if (strcmp(token, "def") == 0)
 					{
-						ifstatement = 0;
 						FREEMEM(token);
 						if (!code->globalOrLocal) {
 							*result = ERRORSUBPROCEDUREINVALID;
@@ -1837,10 +1874,10 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							return statement;
 						}
 						r = 0;
+						ifstatement = 0;
 					}
 					else if (strcmp(token, "return") == 0) 
 					{
-						ifstatement = 0;
 						FREEMEM(token);
 						if (code->globalOrLocal) {
 							*result = ERRORSUBPROCEDUREINVALID;
@@ -1851,16 +1888,20 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							*result = r;
 							return statement;
 						}
+						if (ifstatement != 0) pythonSetNext(code, ifstatement, r, r);
+						ifstatement = 0;
 					}
 					else {
-						ifstatement = 0;
 						char* next = statement;
 						statement = ptr; //back
+						int end = code->statement.size();
 						statement = pythonExecuteParser(statement, next, code, &r,&rf);
 						if (r < 0) {
 							*result = r;
 							return statement;
 						}
+						if (ifstatement != 0) pythonSetNext(code, ifstatement, end, (rf!=0)?rf:r);
+						ifstatement = 0;
 					}
 					if ((*resultfirst == 0) && (rf > 0)) {
 						*resultfirst = rf;
@@ -1882,12 +1923,9 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 				last->next = r;
 			}
 			last = (r != 0)?(Statement)code->statement[r]:NULL;
-			if ((previfstatement != 0) && (ifstatement==0)) {
-				pythonNextIf(code, iflaststatement, r);
-			}
 		}
 	}
-	*result = r;
+	*result = (lw>r)?lw:r;
 	return statement;	
 }
 
