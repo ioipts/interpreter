@@ -989,9 +989,9 @@ char* pythonOperandParser(char* statement, PythonCode code, int* result)
 * a<b
 * b<=c
 * a(x,y) 
-*
+* can be "0" or "1" 
 * 
-* TODO: can be "0" or "1" just return
+* 
 * 9/5/2022
 */
 char* pythonCompareParser(char* statement, PythonCode code, int* result)
@@ -1043,8 +1043,6 @@ char* pythonCompareParser(char* statement, PythonCode code, int* result)
 	}
 	else {	
 		// just add == 1 
-		//*result = ERROREXPECTOPERATOR;
-		//return statement;
 		ConstantStatement right = (ConstantStatement)initStatement(CONSTANTSTATEMENT);
 		right->constant.numproperties = 1;
 		right->constant.properties = (Properties*)ALLOCMEM(sizeof(Properties));
