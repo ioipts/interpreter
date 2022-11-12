@@ -63,7 +63,6 @@ struct PythonCodeS {
 	std::vector<std::string> localVar;
 	std::vector<Statement> statement;
 	std::vector<PythonSubprocedure*> subprocedure;
-	//std::vector<int> laststatement;
 };
 
 char* pythonCompareParser(char* statement, PythonCode code, int* result);
@@ -1369,7 +1368,6 @@ char* pythonForParser(char* statement, PythonCode code,int currentblock, int* re
 		int fa2 = code->statement.size();
 		code->statement.push_back((Statement)a2);
 		pythonSetNext(code, r2, r1+1, fa2);
-		//code->statement[r1]->next = fa2;
 	}
 	//compile for array
 	else {		
@@ -1452,8 +1450,6 @@ char* pythonForParser(char* statement, PythonCode code,int currentblock, int* re
 		int fa3 = code->statement.size();
 		code->statement.push_back((Statement)a3);
 		pythonSetNext(code, r2, r1+1, fa3);
-		//code->statement[r1]->next = fa3;
-
 	}
 	*result = fw;		//last
 	return statement;
@@ -1803,8 +1799,6 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							code->statement[fw]->starttext = ptr - code->sourcecode;
 							code->statement[fw]->endtext = statement - code->sourcecode;
 							r = fw; 
-							// ifstatement = fw;
-							//code->laststatement.push_back(lw);
 						} else {
 							*result = fw;
 							return statement;
@@ -1823,8 +1817,6 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							code->statement[fw]->starttext = ptr - code->sourcecode;
 							code->statement[fw]->endtext = statement - code->sourcecode;
 							r = fw; 
-							// ifstatement = fw;
-							//code->laststatement.push_back(lw);
 						} else {
 							*result = fw;
 							return statement;
@@ -1962,44 +1954,3 @@ CodeBlock pythonParser(const char* statement,int* result,int* pos)
 	FREEMEM(sta); 
 	return c;
 }
-
-
-/**
-* operand or range
-*
-char* pythonOperandOrRangeParser(char* statement, PythonCode code, int* result)
-{
-	int rl = 0;
-	int type;
-	char* token;
-	statement = trimToken(statement);
-	char* ptr1 = statement;
-	int resultfirst;
-	int varid;
-	statement = pythonToken(statement, &type, &token);
-	if (type == ALPHATYPECODE) {
-		if (strcmp(token, "range") == 0) {
-			statement=pythonRangeParser(ptr1, code, result,&resultfirst,&varid);
-			if (*result < 0) {
-				return statement;
-			}
-			VariableStatement vstate = (VariableStatement)initStatement(VARIABLESTATEMENT);
-
-			vstate->numproperty = 0;
-			//TODO:
-			return statement;
-		}
-		else
-			return pythonOperandParser(ptr1, code, result);
-	}
-	else if (type == LEFTBRACKETCODE)
-	{
-		statement=pythonRangeParser(ptr1, code, result,&resultfirst,&varid);
-		if (*result < 0) {
-			return statement;
-		}
-
-		return statement;
-	}
-	return pythonOperandParser(ptr1, code, result);
-}*/
