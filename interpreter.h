@@ -28,29 +28,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * By Pit Suwongs <admin@ornpit.com>
+ *
+ * Bytecode interpreter with binding and debug information.
+ * Written in standard C for the best portabilily
+ *  
+ * 12/11/2022 fix while
+ * 31/07/2022 remove decimal when print integer
+ * 08/08/2021 memleak for Python checked
  */
 
 #ifndef INTERPRETER_H_
 #define INTERPRETER_H_
 
-/**
-* @file interpreter.h
-* @brief interpreter
-* 
-* Bytecode interpreter with binding and debug information.
-* Written in standard C for the best portabilily
-*
-* Feature and Limitation 
-* - binding function
-* - + - * / and or 
-* - support multi dimension of array
-* - subroutine
-* - always pass by value
-* - return a value, structure or array 
-*  
-* 31/07/2022 remove decimal when print integer
-* 08/08/2021 mem leak for Python checked, able to run 
-*/
 
 #include <stdint.h>
 #include <string.h>

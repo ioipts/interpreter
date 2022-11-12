@@ -559,16 +559,16 @@ Value* runstep(CodeBlock c,int index)
 	 case WHILESTATEMENT:
 	 {
 		 whilestatement = (WhileStatement)c->statement[index];
-		 left = runstep(c, whilestatement->logic);
-		 while (strcmp(left->properties[0].value, "1") == 0)
+		 left = runstep(c, whilestatement->logic);		 
+		 if (strcmp(left->properties[0].value, "1") == 0)
 		 {
 			 destroyValue(left);
-			 right=runstep(c, whilestatement->dowhile);
-			 if (right != NULL) destroyValue(right);
-			 left=runstep(c, whilestatement->logic);
+			 index = whilestatement->dowhile;
 		 }
-		 destroyValue(left);
-		 index=whilestatement->next;
+		 else {
+			 destroyValue(left);
+			 index = whilestatement->next;
+		 }
 	 } break;
 	 }
  }

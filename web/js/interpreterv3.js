@@ -1,11 +1,44 @@
-/**
- * non blocking version
+/*
+ * Copyright (c) 2022 Pit Suwongs, พิทย์ สุวงศ์ (Thailand)
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote
+ * products derived from this software without specific prior written
+ * permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * By Pit Suwongs <admin@ornpit.com>
  * 
- * 05/11/22 fix calling & return
- * 18/10/22 immediate mode return
- * 31/07/22 for loop
- * 28/07/22 calling & return
- * 25/07/22 remove if 
+ * Bytecode interpreter with binding and debug information.
+ * Written in Javascript 
+ * 
+ * 12/11/2022 fix while
+ * 09/11/2022 add importscript
+ * 05/11/2022 fix calling & return
+ * 18/10/2022 immediate mode return
+ * 31/07/2022 for loop
+ * 28/07/2022 calling & return
+ * 25/07/2022 remove if 
  */
 
 /********* STATEMENT TYPE *************/
@@ -34,6 +67,7 @@ const PAUSE_STATE = 2;
 const INTERPRETER_TIMER = 1;
 const INTERPRETER_LOOP = 2000;
 var INTERPRETER_IMMEDIATE = false;
+var IS_SCRIPT = false;
 const DEBUG = 0;
 
 /********* code block & result *****************/
@@ -116,7 +150,6 @@ function variableArray(vid) {	//expand the array
 	}
 }
 
-//get the property 
 function getVariableProperty(v,i) {
 	if (v.properties[i].type === STATICVARPROPERTY) {
 		c.return=initValue(v.properties[i].static);
@@ -440,11 +473,9 @@ function runstep() {
 					} else if (c.state.s==1) {
 						if (c.return.properties[0].value==="1")
 						{
-							c.state.s=0;
-							c.statestack[c.statestackindex]=c.state;
-							c.statestackindex++;
-							c.index=s.dowhile;				//var left = runstep(s.while);
-							c.state=null;
+							c.index=s.dowhile;				
+							c.state = null;
+							c.return = null;
 							return false;
 						} //then next
 					}
@@ -545,6 +576,8 @@ function runloop() {
 	for (i=0;i<INTERPRETER_LOOP;i++)
 	{
 		runstep();
+		var s = c.statement[c.index];
+		if ((s!=null) && (s.type==BINDINGSTATEMENT) && (c.state!==null) && (c.state.s==3) && (c.return==null)) break;
 	}
 }
 
@@ -858,17 +891,17 @@ function defaultfunc(v,varname,propertie,funcname,param)
     	tick=new Date();
     	c.return=initValue("");
     } else if (funcname=="sin") {
-
+    	c.return = initValue(Math.sin(Math.PI*parseFloat(param[0].properties[0].value)/180).toString());
     } else if (funcname=="cos") {
-
+    	c.return = initValue(Math.cos(Math.PI*parseFloat(param[0].properties[0].value)/180).toString());
     } else if (funcname=="tan") {
-
+    	c.return = initValue(Math.tan(Math.PI*parseFloat(param[0].properties[0].value)/180).toString());
     } else if (funcname=="asin") {
 
     } else if (funcname=="acos") {
 
     } else if (funcname=="len") {
-
+    	c.return = initValue(param[0].properties[0].value.length);
     } else if (funcname=="index") {
 
     } else if (funcname=="random") {
@@ -885,9 +918,18 @@ function defaultfunc(v,varname,propertie,funcname,param)
 function workercallback(v,varname,propertie,funcname,param)
 {
 	if (!defaultfunc(v,varname,propertie,funcname,param)) {
-		postMessage({type:"callback",v:v,varname:varname,propertie:propertie,funcname:funcname,param:param});
-		//immediate
-		if (INTERPRETER_IMMEDIATE) c.return=initValue("");
+
+		if (IS_SCRIPT) {
+			if (!internalcallback(v,varname,propertie,funcname,param)) {
+				postMessage({type:"callback",v:v,varname:varname,propertie:propertie,funcname:funcname,param:param});
+				if (isimmediate(v,varname,propertie,funcname,param)) {
+					c.return=initValue("");
+				} 
+			}
+		} else {
+			postMessage({type:"callback",v:v,varname:varname,propertie:propertie,funcname:funcname,param:param});
+			if (INTERPRETER_IMMEDIATE) c.return=initValue("");
+		}
 	}
 }
 
@@ -907,11 +949,14 @@ addEventListener("message", event => {
 		resumecodeblock();
 	} else 
 	if (t=="return") {
-		//console.log("return");
 		if (!INTERPRETER_IMMEDIATE) c.return=event.data.return;
 	} else 
 	if (t=="immediate") {
 		INTERPRETER_IMMEDIATE=event.data.immediate;
-	}
+	} else 
+	if (t=="script") {
+		IS_SCRIPT=true;
+		importScripts(event.data.script);
+	} 
 });
 
