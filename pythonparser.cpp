@@ -279,7 +279,7 @@ int pythonGetVar(PythonCode code,const char* varname,bool* isLocal)
 			code->localVar.push_back(varname); 
 			vid = code->localVar.size() - 1; 
 			*isLocal = true;
-			//code->currentSub->numstack++;		//no need to add stack
+			//no need to add stack
 		} 
 	}
 	return vid;
@@ -628,6 +628,10 @@ char* pythonExecuteParser(char* statement, char* next,PythonCode code, int* resu
 			*result = code->statement.size();
 			code->statement.push_back((Statement)a);
 		}
+	}
+	else {
+		*result = ERROREXPECTASSIGN;
+		return statement;		
 	}
 	return statement;
 }
@@ -989,8 +993,6 @@ char* pythonOperandParser(char* statement, PythonCode code, int* result)
 * b<=c
 * a(x,y) 
 * can be "0" or "1" 
-* 
-* 
 * 9/5/2022
 */
 char* pythonCompareParser(char* statement, PythonCode code, int* result)
@@ -1368,6 +1370,7 @@ char* pythonForParser(char* statement, PythonCode code,int currentblock, int* re
 		int fa2 = code->statement.size();
 		code->statement.push_back((Statement)a2);
 		pythonSetNext(code, r2, r1+1, fa2);
+		//code->statement[r1]->next = fa2;
 	}
 	//compile for array
 	else {		
@@ -1450,6 +1453,8 @@ char* pythonForParser(char* statement, PythonCode code,int currentblock, int* re
 		int fa3 = code->statement.size();
 		code->statement.push_back((Statement)a3);
 		pythonSetNext(code, r2, r1+1, fa3);
+		//code->statement[r1]->next = fa3;
+
 	}
 	*result = fw;		//last
 	return statement;
@@ -1799,6 +1804,8 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							code->statement[fw]->starttext = ptr - code->sourcecode;
 							code->statement[fw]->endtext = statement - code->sourcecode;
 							r = fw; 
+							// ifstatement = fw;
+							//code->laststatement.push_back(lw);
 						} else {
 							*result = fw;
 							return statement;
@@ -1817,6 +1824,8 @@ char* pythonRoutineParser(char* statement, PythonCode code, int currentblock,int
 							code->statement[fw]->starttext = ptr - code->sourcecode;
 							code->statement[fw]->endtext = statement - code->sourcecode;
 							r = fw; 
+							// ifstatement = fw;
+							//code->laststatement.push_back(lw);
 						} else {
 							*result = fw;
 							return statement;
@@ -1954,3 +1963,5 @@ CodeBlock pythonParser(const char* statement,int* result,int* pos)
 	FREEMEM(sta); 
 	return c;
 }
+
+
